@@ -18,50 +18,7 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    # Custom CSS for better styling
-    st.markdown("""
-    <style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    
-    .metric-container {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin: 0.5rem 0;
-    }
-    
-    .sidebar .sidebar-content {
-        background-color: #f8f9fa;
-    }
-    
-    .stButton > button {
-        width: 100%;
-    }
-    
-    .reminder-high {
-        border-left: 4px solid #ff4444;
-        padding-left: 1rem;
-        background-color: #fff5f5;
-    }
-    
-    .reminder-medium {
-        border-left: 4px solid #ffaa00;
-        padding-left: 1rem;
-        background-color: #fffaf0;
-    }
-    
-    .reminder-low {
-        border-left: 4px solid #00aa00;
-        padding-left: 1rem;
-        background-color: #f0fff0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Using native Streamlit styling - no custom CSS needed
     
     # Sidebar navigation
     st.sidebar.title("🏠 Navigation")

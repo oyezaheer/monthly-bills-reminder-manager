@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from models import ReminderEngine, Bill
 
@@ -208,32 +208,66 @@ class ReminderView:
                 color = "error" if "Overdue" in period else "warning" if "This Week" in period else "info"
                 st.metric(period, count)
         
-        # Detailed upcoming bills
+        # Detailed upcoming bills using NumPy
         st.subheader("📋 Detailed Upcoming Bills")
         
         bills = Bill.get_all(include_paid=False)
         today = datetime.now()
         
-        upcoming_bills = []
+        if not bills:
+            st.info(f"No bills due in the next {days_ahead} days.")
+            return
+        
+        # Filter and extract data using NumPy
+        bill_data = []
         for bill in bills:
             days_until_due = (bill.due_date - today).days
             if days_until_due <= days_ahead:
                 scores = bill.get_composite_score()
-                upcoming_bills.append({
-                    'Bill': bill.name,
-                    'Amount': f"${bill.amount:.2f}",
-                    'Due Date': bill.due_date.strftime('%Y-%m-%d'),
-                    'Days Until Due': days_until_due,
-                    'Category': bill.category,
-                    'Priority Score': f"{scores['composite_score']:.1f}/10"
+                bill_data.append({
+                    'bill': bill,
+                    'days_until_due': days_until_due,
+                    'score': scores['composite_score']
                 })
         
-        if upcoming_bills:
-            df = pd.DataFrame(upcoming_bills)
-            df = df.sort_values('Days Until Due')
-            st.dataframe(df, use_container_width=True)
-        else:
+        if not bill_data:
             st.info(f"No bills due in the next {days_ahead} days.")
+            return
+        
+        # Sort using NumPy
+        days_array = np.array([data['days_until_due'] for data in bill_data])
+        sorted_indices = np.argsort(days_array)
+        
+        # Display sorted bills
+        for idx in sorted_indices:
+            data = bill_data[idx]
+            bill = data['bill']
+            days = data['days_until_due']
+            score = data['score']
+            
+            with st.container():
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.write(f"**{bill.name}**")
+                    st.caption(f"Category: {bill.category}")
+                
+                with col2:
+                    st.metric("Amount", f"${bill.amount:.2f}")
+                
+                with col3:
+                    if days < 0:
+                        st.error(f"{abs(days)} days overdue")
+                    elif days == 0:
+                        st.warning("Due today")
+                    else:
+                        st.info(f"Due in {days} days")
+                
+                with col4:
+                    st.metric("Priority", f"{score:.1f}/10")
+                    st.caption(f"Due: {bill.due_date.strftime('%Y-%m-%d')}")
+                
+                st.markdown("---")
     
     def _render_reminder_settings(self):
         """Render reminder settings and preferences"""

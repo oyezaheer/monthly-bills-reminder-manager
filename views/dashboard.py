@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from models import Bill, ReminderEngine, PaymentHistory
@@ -106,7 +105,7 @@ class DashboardView:
                 st.markdown("---")
     
     def _render_upcoming_bills_chart(self):
-        """Render upcoming bills visualization"""
+        """Render upcoming bills visualization using NumPy"""
         st.subheader("📅 Upcoming Bills Timeline")
         
         bills = Bill.get_all(include_paid=False)
@@ -115,35 +114,52 @@ class DashboardView:
             st.info("No upcoming bills to display.")
             return
         
-        # Prepare data for chart
-        chart_data = []
+        # Extract data using NumPy
         today = datetime.now()
+        bill_names = [bill.name for bill in bills]
+        amounts = np.array([bill.amount for bill in bills])
+        days_until_due = np.array([(bill.due_date - today).days for bill in bills])
+        categories = [bill.category for bill in bills]
+        scores = np.array([bill.get_composite_score()['composite_score'] for bill in bills])
+        due_dates = [bill.due_date.strftime('%Y-%m-%d') for bill in bills]
         
-        for bill in bills:
-            days_until_due = (bill.due_date - today).days
-            scores = bill.get_composite_score()
-            
-            chart_data.append({
-                'Bill Name': bill.name,
-                'Amount': bill.amount,
-                'Days Until Due': days_until_due,
-                'Category': bill.category,
-                'Priority Score': scores['composite_score'],
-                'Due Date': bill.due_date.strftime('%Y-%m-%d')
-            })
+        # Create chart data using NumPy operations
+        chart_data = dict(zip(bill_names, amounts))
         
-        df = pd.DataFrame(chart_data)
+        # Display bar chart
+        st.bar_chart(chart_data)
         
-        # Display as chart
-        if len(df) > 0:
-            # Bar chart of amounts by due date
-            st.bar_chart(df.set_index('Bill Name')['Amount'])
-            
-            # Data table
-            st.dataframe(
-                df.sort_values('Days Until Due'),
-                use_container_width=True
-            )
+        # Sort bills by days until due using NumPy
+        sorted_indices = np.argsort(days_until_due)
+        
+        # Display sorted data in columns
+        st.subheader("📋 Bills Summary")
+        
+        for i in sorted_indices:
+            with st.container():
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.write(f"**{bill_names[i]}**")
+                    st.caption(f"Category: {categories[i]}")
+                
+                with col2:
+                    st.metric("Amount", f"${amounts[i]:.2f}")
+                
+                with col3:
+                    days = days_until_due[i]
+                    if days < 0:
+                        st.error(f"{abs(days)} days overdue")
+                    elif days == 0:
+                        st.warning("Due today")
+                    else:
+                        st.info(f"Due in {days} days")
+                
+                with col4:
+                    st.metric("Priority", f"{scores[i]:.1f}/10")
+                    st.caption(f"Due: {due_dates[i]}")
+                
+                st.markdown("---")
     
     def _render_recent_activity(self):
         """Render recent payment activity"""

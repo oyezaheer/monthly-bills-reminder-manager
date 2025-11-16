@@ -22,13 +22,13 @@ Try the application locally by following the installation steps below!
 - **Dashboard Analytics**: Comprehensive overview with charts and metrics
 
 ### Technical Features
-- **OOP Architecture**: Bill, ReminderEngine, PaymentHistory classes
-- **NumPy Integration**: Advanced scoring algorithms and data analysis
-- **Generator Pattern**: Efficient reminder production system
-- **Decorator Pattern**: Automatic payment logging
+- **OOP Architecture**: Bill, ReminderEngine, PaymentHistory classes with inheritance and encapsulation
+- **Advanced NumPy Integration**: Statistical analysis, multi-criteria scoring, array operations
+- **Generator Pattern**: Memory-efficient reminder production with yield statements
+- **Enhanced Decorator Pattern**: Payment logging, transaction validation, error handling
 - **MVT Structure**: Clean separation of Models, Views, and Templates
-- **SQLite Database**: Persistent data storage with relational structure
-- **Streamlit UI**: Modern, responsive web interface
+- **MySQL Database**: Robust relational database with connection pooling
+- **Native Streamlit UI**: Clean interface using built-in Streamlit components
 
 ## 📁 Project Structure
 
@@ -74,14 +74,25 @@ jiya/
    pip install -r requirements.txt
    ```
 
-3. **Run the application**
+3. **Set up MySQL database**
    ```bash
-   streamlit run app.py
+   python mysql_setup.py
+   ```
+   Follow the interactive setup to configure your MySQL connection.
+
+4. **Generate demo data (optional)**
+   ```bash
+   python setup_demo.py
    ```
 
-4. **Access the application**
+5. **Run the application**
+   ```bash
+   python -m streamlit run app.py
+   ```
+
+6. **Access the application**
    - Open your browser and go to `http://localhost:8501`
-   - The application will automatically create the SQLite database on first run
+   - The application will connect to your MySQL database
 
 ## 🎯 Usage Guide
 

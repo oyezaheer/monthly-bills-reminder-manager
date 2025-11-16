@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+import numpy as np
 from datetime import datetime
 from models import Bill, PaymentHistory
 
@@ -218,7 +218,7 @@ class PaymentTrackingView:
                 st.markdown("---")
     
     def _render_payment_analytics(self):
-        """Render payment analytics and insights"""
+        """Render payment analytics using NumPy operations"""
         st.subheader("📊 Payment Analytics")
         
         payments = PaymentHistory.get_all()
@@ -227,20 +227,11 @@ class PaymentTrackingView:
             st.info("No payment data available for analytics.")
             return
         
-        # Create DataFrame for analysis
-        payment_data = []
-        for payment in payments:
-            bill_name = getattr(payment, 'bill_name', f'Bill ID: {payment.bill_id}')
-            payment_data.append({
-                'Bill Name': bill_name,
-                'Amount': payment.amount_paid,
-                'Date': payment.payment_date,
-                'Method': payment.payment_method,
-                'Month': payment.payment_date.strftime('%Y-%m'),
-                'Year': payment.payment_date.year
-            })
-        
-        df = pd.DataFrame(payment_data)
+        # Extract data using NumPy arrays
+        amounts = np.array([payment.amount_paid for payment in payments])
+        dates = np.array([payment.payment_date for payment in payments])
+        methods = [payment.payment_method for payment in payments]
+        bill_names = [getattr(payment, 'bill_name', f'Bill ID: {payment.bill_id}') for payment in payments]
         
         # Analytics sections
         col1, col2 = st.columns(2)
@@ -248,44 +239,91 @@ class PaymentTrackingView:
         with col1:
             st.subheader("💰 Payment Summary")
             
-            # Total metrics
-            total_paid = df['Amount'].sum()
-            avg_payment = df['Amount'].mean()
-            payment_count = len(df)
+            # NumPy-based calculations
+            total_paid = float(np.sum(amounts))
+            avg_payment = float(np.mean(amounts))
+            median_payment = float(np.median(amounts))
+            std_payment = float(np.std(amounts))
+            payment_count = len(amounts)
             
             st.metric("Total Paid", f"${total_paid:.2f}")
             st.metric("Average Payment", f"${avg_payment:.2f}")
+            st.metric("Median Payment", f"${median_payment:.2f}")
             st.metric("Total Transactions", payment_count)
             
-            # Payment methods breakdown
+            # Payment methods breakdown using NumPy
             st.subheader("💳 Payment Methods")
-            method_counts = df['Method'].value_counts()
-            st.bar_chart(method_counts)
+            unique_methods, method_counts = np.unique(methods, return_counts=True)
+            method_data = dict(zip(unique_methods, method_counts))
+            st.bar_chart(method_data)
+            
+            # Statistical insights
+            st.subheader("📈 Statistical Insights")
+            st.write(f"**Standard Deviation**: ${std_payment:.2f}")
+            st.write(f"**Min Payment**: ${np.min(amounts):.2f}")
+            st.write(f"**Max Payment**: ${np.max(amounts):.2f}")
+            
+            # Quartile analysis
+            quartiles = np.percentile(amounts, [25, 50, 75])
+            st.write(f"**25th Percentile**: ${quartiles[0]:.2f}")
+            st.write(f"**75th Percentile**: ${quartiles[2]:.2f}")
         
         with col2:
-            st.subheader("📅 Monthly Trends")
+            st.subheader("📅 Payment Trends")
             
-            # Monthly spending
-            monthly_spending = df.groupby('Month')['Amount'].sum().sort_index()
-            if len(monthly_spending) > 0:
-                st.line_chart(monthly_spending)
+            # Monthly analysis using NumPy
+            months = [date.strftime('%Y-%m') for date in dates]
+            unique_months = sorted(list(set(months)))
+            
+            monthly_totals = {}
+            for month in unique_months:
+                month_mask = np.array([m == month for m in months])
+                monthly_totals[month] = float(np.sum(amounts[month_mask]))
+            
+            if monthly_totals:
+                st.line_chart(monthly_totals)
             
             # Recent activity
             st.subheader("🕒 Recent Activity")
-            recent_payments = df.sort_values('Date', ascending=False).head(5)
+            # Sort by date (most recent first)
+            date_indices = np.argsort([date.timestamp() for date in dates])[::-1]
             
-            for _, payment in recent_payments.iterrows():
-                st.write(f"• **{payment['Bill Name']}**: ${payment['Amount']:.2f} on {payment['Date'].strftime('%Y-%m-%d')}")
+            for i in range(min(5, len(date_indices))):
+                idx = date_indices[i]
+                st.write(f"• **{bill_names[idx]}**: ${amounts[idx]:.2f} on {dates[idx].strftime('%Y-%m-%d')}")
         
-        # Detailed breakdown
-        st.subheader("📋 Detailed Breakdown")
+        # Detailed breakdown using NumPy operations
+        st.subheader("📋 Detailed Breakdown by Bill")
         
-        # Group by bill name
-        bill_summary = df.groupby('Bill Name').agg({
-            'Amount': ['sum', 'count', 'mean'],
-            'Date': ['min', 'max']
-        }).round(2)
+        # Group by bill name using NumPy
+        unique_bills = list(set(bill_names))
+        bill_analytics = []
         
-        bill_summary.columns = ['Total Paid', 'Payment Count', 'Avg Payment', 'First Payment', 'Last Payment']
+        for bill_name in unique_bills:
+            bill_mask = np.array([name == bill_name for name in bill_names])
+            bill_amounts = amounts[bill_mask]
+            bill_dates = dates[bill_mask]
+            
+            if len(bill_amounts) > 0:
+                bill_analytics.append({
+                    'Bill Name': bill_name,
+                    'Total Paid': f"${np.sum(bill_amounts):.2f}",
+                    'Payment Count': len(bill_amounts),
+                    'Avg Payment': f"${np.mean(bill_amounts):.2f}",
+                    'First Payment': min(bill_dates).strftime('%Y-%m-%d'),
+                    'Last Payment': max(bill_dates).strftime('%Y-%m-%d')
+                })
         
-        st.dataframe(bill_summary, use_container_width=True)
+        # Display as table
+        if bill_analytics:
+            for analytics in bill_analytics:
+                with st.expander(f"📊 {analytics['Bill Name']}"):
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a:
+                        st.metric("Total Paid", analytics['Total Paid'])
+                        st.metric("Payment Count", analytics['Payment Count'])
+                    with col_b:
+                        st.metric("Average Payment", analytics['Avg Payment'])
+                    with col_c:
+                        st.write(f"**First**: {analytics['First Payment']}")
+                        st.write(f"**Last**: {analytics['Last Payment']}")

@@ -122,7 +122,7 @@ class Bill:
         return float(np.clip(penalty_risk, 0, 1))
     
     def calculate_amount_impact_score(self) -> float:
-        """Calculate amount impact score using NumPy"""
+        """Calculate amount impact score using advanced NumPy operations"""
         # Get all bills for comparison
         all_bills = self.get_all(include_paid=True)
         amounts = np.array([bill.amount for bill in all_bills])
@@ -130,35 +130,96 @@ class Bill:
         if len(amounts) == 0:
             return 5.0
         
-        # Calculate percentile rank of this bill's amount
-        percentile = np.percentile(amounts, 50)  # Median
-        max_amount = np.max(amounts)
+        # Advanced NumPy statistical analysis
+        mean_amount = np.mean(amounts)
+        std_amount = np.std(amounts)
+        median_amount = np.median(amounts)
         
-        # Normalize impact score
-        if max_amount > 0:
-            impact_score = (self.amount / max_amount) * 10
-        else:
-            impact_score = 5.0
+        # Calculate z-score for this bill
+        z_score = (self.amount - mean_amount) / (std_amount + 1e-6)  # Avoid division by zero
+        
+        # Calculate percentile rank using NumPy
+        percentile_rank = np.percentile(amounts, np.searchsorted(np.sort(amounts), self.amount) / len(amounts) * 100)
+        
+        # Multi-factor impact calculation using NumPy operations
+        impact_factors = np.array([
+            np.clip(z_score + 2, 0, 4) / 4 * 3,  # Z-score normalized (0-3)
+            (self.amount / np.max(amounts)) * 4,  # Relative to max (0-4)
+            (self.amount / median_amount) * 2,    # Relative to median (0-2)
+            min(self.amount / 1000, 1) * 1       # Absolute amount factor (0-1)
+        ])
+        
+        # Weighted combination using NumPy
+        weights = np.array([0.3, 0.3, 0.25, 0.15])
+        impact_score = np.dot(impact_factors, weights)
         
         return float(np.clip(impact_score, 0, 10))
     
     def get_composite_score(self) -> Dict[str, float]:
-        """Get all scores combined"""
+        """Get all scores combined using advanced NumPy operations"""
         urgency = self.calculate_urgency_score()
         penalty_risk = self.calculate_penalty_risk()
         amount_impact = self.calculate_amount_impact_score()
         
-        # Calculate composite score using NumPy
+        # Advanced composite scoring using NumPy
         scores = np.array([urgency, penalty_risk * 10, amount_impact])
         weights = np.array([0.5, 0.3, 0.2])
-        composite = np.dot(scores, weights)
+        
+        # Apply non-linear transformation for better score distribution
+        normalized_scores = np.tanh(scores / 5) * 5  # Sigmoid-like normalization
+        composite = np.dot(normalized_scores, weights)
+        
+        # Calculate confidence interval using NumPy
+        score_variance = np.var(scores)
+        confidence = 1 / (1 + score_variance)  # Higher confidence for consistent scores
         
         return {
             'urgency_score': urgency,
             'penalty_risk': penalty_risk,
             'amount_impact_score': amount_impact,
-            'composite_score': float(composite)
+            'composite_score': float(composite),
+            'confidence_level': float(confidence),
+            'score_variance': float(score_variance)
         }
+    
+    @classmethod
+    def get_bills_analytics(cls) -> Dict[str, Any]:
+        """Get comprehensive analytics using NumPy operations"""
+        bills = cls.get_all(include_paid=True)
+        
+        if not bills:
+            return {'total_bills': 0}
+        
+        # Extract data using NumPy
+        amounts = np.array([bill.amount for bill in bills])
+        due_dates = np.array([(bill.due_date - datetime.now()).days for bill in bills])
+        scores = np.array([bill.get_composite_score()['composite_score'] for bill in bills])
+        
+        # Advanced NumPy analytics
+        analytics = {
+            'total_bills': len(bills),
+            'amount_stats': {
+                'mean': float(np.mean(amounts)),
+                'median': float(np.median(amounts)),
+                'std': float(np.std(amounts)),
+                'min': float(np.min(amounts)),
+                'max': float(np.max(amounts)),
+                'quartiles': np.percentile(amounts, [25, 50, 75]).tolist()
+            },
+            'due_date_stats': {
+                'overdue_count': int(np.sum(due_dates < 0)),
+                'due_soon_count': int(np.sum((due_dates >= 0) & (due_dates <= 7))),
+                'avg_days_until_due': float(np.mean(due_dates[due_dates >= 0])) if np.any(due_dates >= 0) else 0
+            },
+            'score_distribution': {
+                'mean_score': float(np.mean(scores)),
+                'high_priority_count': int(np.sum(scores > 7)),
+                'medium_priority_count': int(np.sum((scores >= 4) & (scores <= 7))),
+                'low_priority_count': int(np.sum(scores < 4))
+            }
+        }
+        
+        return analytics
     
     def delete(self) -> bool:
         """Delete bill from database"""

@@ -3,11 +3,49 @@ from typing import List, Optional, Dict, Any
 from .database import DatabaseManager
 
 def payment_logger(func):
-    """Decorator to log payment activities"""
+    """Enhanced decorator to log payment activities with detailed information"""
     def wrapper(self, *args, **kwargs):
-        result = func(self, *args, **kwargs)
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Payment logged: {func.__name__}")
-        return result
+        start_time = datetime.now()
+        
+        # Log function start
+        print(f"[{start_time.strftime('%Y-%m-%d %H:%M:%S')}] Starting {func.__name__} for payment ID: {getattr(self, 'id', 'NEW')}")
+        
+        try:
+            result = func(self, *args, **kwargs)
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            
+            # Log successful completion
+            print(f"[{end_time.strftime('%Y-%m-%d %H:%M:%S')}] ✅ {func.__name__} completed successfully")
+            print(f"   💰 Amount: ${getattr(self, 'amount_paid', 0):.2f}")
+            print(f"   📅 Date: {getattr(self, 'payment_date', 'N/A')}")
+            print(f"   💳 Method: {getattr(self, 'payment_method', 'N/A')}")
+            print(f"   ⏱️ Duration: {duration:.3f}s")
+            
+            return result
+            
+        except Exception as e:
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            
+            # Log error
+            print(f"[{end_time.strftime('%Y-%m-%d %H:%M:%S')}] ❌ {func.__name__} failed: {str(e)}")
+            print(f"   ⏱️ Duration: {duration:.3f}s")
+            raise
+            
+    return wrapper
+
+def transaction_validator(func):
+    """Decorator to validate payment transactions"""
+    def wrapper(self, *args, **kwargs):
+        # Validate payment data before processing
+        if hasattr(self, 'amount_paid') and self.amount_paid <= 0:
+            raise ValueError("Payment amount must be greater than 0")
+        
+        if hasattr(self, 'bill_id') and not self.bill_id:
+            raise ValueError("Bill ID is required")
+        
+        return func(self, *args, **kwargs)
     return wrapper
 
 class PaymentHistory:
@@ -24,6 +62,7 @@ class PaymentHistory:
         self.db = DatabaseManager()
     
     @payment_logger
+    @transaction_validator
     def save(self) -> int:
         """Save payment record to database"""
         if self.id is None:

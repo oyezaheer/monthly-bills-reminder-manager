@@ -51,7 +51,7 @@ class ReminderEngine:
             }
     
     def generate_all_reminders(self) -> List[Dict[str, Any]]:
-        """Generate reminders for all unpaid bills"""
+        """Generate reminders for all unpaid bills using advanced NumPy operations"""
         bills = Bill.get_all(include_paid=False)
         all_reminders = []
         
@@ -60,11 +60,27 @@ class ReminderEngine:
             for reminder in self.reminder_generator(bill):
                 all_reminders.append(reminder)
         
-        # Sort by composite score (highest priority first) using NumPy
-        if all_reminders:
-            scores = np.array([r['composite_score'] for r in all_reminders])
-            sorted_indices = np.argsort(scores)[::-1]  # Descending order
-            all_reminders = [all_reminders[i] for i in sorted_indices]
+        if not all_reminders:
+            return []
+        
+        # Advanced NumPy-based sorting and filtering
+        scores = np.array([r['composite_score'] for r in all_reminders])
+        urgency_levels = np.array([3 if r['urgency_level'] == 'high' else 
+                                 2 if r['urgency_level'] == 'medium' else 1 
+                                 for r in all_reminders])
+        days_until_due = np.array([r['days_until_due'] for r in all_reminders])
+        
+        # Multi-criteria sorting using NumPy
+        # Priority = composite_score * urgency_weight - days_penalty
+        priority_scores = scores * urgency_levels - np.maximum(days_until_due, 0) * 0.1
+        
+        # Apply exponential decay for overdue bills (higher priority)
+        overdue_mask = days_until_due < 0
+        priority_scores[overdue_mask] += np.abs(days_until_due[overdue_mask]) * 0.5
+        
+        # Sort by priority (highest first)
+        sorted_indices = np.argsort(priority_scores)[::-1]
+        all_reminders = [all_reminders[i] for i in sorted_indices]
         
         return all_reminders
     
